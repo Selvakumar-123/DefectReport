@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defect Reporting Form</title>
+    <!-- Use jsPDF and html2canvas directly instead of html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 100px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .image-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .image-container img {
+            max-width: 150px;
+            max-height: 150px;
+            margin-right: 10px;
+        }
+        .image-upload {
+            margin-bottom: 10px;
+        }
+        .add-more {
+            background-color: #2196F3;
+            margin-bottom: 20px;
+        }
+        #reportContainer {
+            margin-top: 30px;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 4px;
+            display: none;
+        }
+        #pdfContent {
+            background-color: white;
+            padding: 20px;
+            width: 210mm; /* A4 width */
+            box-sizing: border-box;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #000;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        td img {
+            max-width: 200px;
+            max-height: 200px;
+        }
+        .buttons {
+            margin-top: 20px;
+        }
+        #loadingMessage {
+            display: none;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Defect Reporting Form</h1>
+    
+    <form id="defectForm">
+
+        
+        <div class="form-group">
+            <label for="company">Company:</label>
+            <input type="text" id="company" name="company" required>
+        </div>
+        
+      
+        
+        <div class="form-group">
+            <label>Defect Photo:</label>
+            <div id="imageUploads">
+                <div class="image-upload">
+                    <input type="file" class="photoInput" accept="image/*" onchange="previewImage(this)">
+                    <div class="image-preview"></div>
+                </div>
+            </div>
+            <button type="button" class="add-more" onclick="addImageUpload()">Add More Photos</button>
+        </div>
+        
+
+        
+        <button type="button" onclick="generateReport()">Submit and Generate Report</button>
+    </form>
+    
+    <div id="loadingMessage">Generating PDF, please wait...</div>
+    
+    <div id="reportContainer">
+        <h2>Defect Report Preview</h2>
+        
+        <div id="pdfContent">
+            <h2 style="text-align: center;">Defect Report</h2>
+            
+            <p><strong>Company:</strong> <span id="pdf-company"></span></p>
+            <p><strong>Defect Description:</strong> <span id="pdf-defectDescription"></span></p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Defect Photo</th>
+                        <th>Defect Description</th>
+                    </tr>
+                </thead>
+                <tbody id="pdf-defectTableBody">
+                    <!-- Table rows will be added dynamically -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="buttons">
+            <button type="button" onclick="generatePDF()">Download PDF</button>
+            <button type="button" onclick="window.print()">Print Report</button>
+        </div>
+    </div>
+    
+    <script>
+        // Global array to store image data
+        let reportImages = [];
+        
+        function addImageUpload() {
+            const imageUploads = document.getElementById('imageUploads');
+            const newUpload = document.createElement('div');
+            newUpload.className = 'image-upload';
+            newUpload.innerHTML = `
+                <input type="file" class="photoInput" accept="image/*" onchange="previewImage(this)">
+                <div class="image-preview"></div>
+            `;
+            imageUploads.appendChild(newUpload);
+        }
+        
+        function previewImage(input) {
+            const preview = input.nextElementSibling;
+            
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    preview.innerHTML = `
+                        <div class="image-container">
+                            <img src="${e.target.result}" alt="Preview">
+                            <textarea placeholder="Image specific remarks"></textarea>
+                        </div>
+                    `;
+                }
+                
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        
+        function generateReport() {
+            // Get form values
+            
+            const company = document.getElementById('company').value;
+            
+            
+            
+            // Validate form
+            if (!company ) {
+                alert('Please fill out all required fields');
+                return;
+            }
+            
+            // Reset images array
+            reportImages = [];
+            
+            // Set preview values
+           
+            document.getElementById('pdf-company').textContent = company;
+            
+            
+            // Clear existing table content
+            const tableBody = document.getElementById('pdf-defectTableBody');
+            tableBody.innerHTML = '';
+            
+            // Add each image and its remarks to the table
+            const imageUploads = document.querySelectorAll('.image-upload');
+            let hasImages = false;
+            
+            imageUploads.forEach((upload, index) => {
+                const imgPreview = upload.querySelector('.image-preview img');
+                if (imgPreview) {
+                    hasImages = true;
+                    const imgRemarks = upload.querySelector('.image-preview textarea')?.value || remarks;
+                    
+                    // Store image data for PDF generation
+                    reportImages.push({
+                        src: imgPreview.src,
+                        remarks: imgRemarks
+                    });
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><img src="${imgPreview.src}" alt="Defect"></td>
+                        <td>${imgRemarks}</td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+            });
+            
+            if (!hasImages) {
+                alert('Please upload at least one image');
+                return;
+            }
+            
+            // Show preview
+            document.getElementById('reportContainer').style.display = 'block';
+            
+            // Scroll to preview
+            document.getElementById('reportContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function generatePDF() {
+            // Show loading message
+            document.getElementById('loadingMessage').style.display = 'block';
+            
+            // Get content
+            const pdfContent = document.getElementById('pdfContent');
+            
+            // Use html2canvas to capture the content
+            html2canvas(pdfContent, {
+                scale: 2,
+                useCORS: true,
+                logging: true,
+                allowTaint: true
+            }).then(canvas => {
+                // Create PDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                
+                // Get canvas width and height
+                const imgWidth = 210; // A4 width in mm
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                
+                // Add canvas to PDF
+                const imgData = canvas.toDataURL('image/png');
+                pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+                
+                // Save PDF
+                pdf.save(`defect_report_${new Date().toISOString().slice(0,10)}.pdf`);
+                
+                // Hide loading message
+                document.getElementById('loadingMessage').style.display = 'none';
+            });
+        }
+        
+        // Alternative simple approach that directly creates PDF
+        function generateSimplePDF() {
+            document.getElementById('loadingMessage').style.display = 'block';
+            
+            // Get form values
+           
+            const company = document.getElementById('company').value;
+            
+            
+            // Create PDF
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF();
+            
+            // Add content
+            pdf.setFontSize(18);
+            pdf.text("Defect Report", 105, 15, { align: "center" });
+            
+            pdf.setFontSize(12);
+            
+            pdf.text(`Company: ${company}`, 20, 40);
+            
+            
+            // Add table header
+            pdf.setFillColor(240, 240, 240);
+            pdf.rect(20, 60, 80, 10, 'F');
+            pdf.rect(100, 60, 80, 10, 'F');
+            pdf.setDrawColor(0);
+            pdf.rect(20, 60, 80, 10);
+            pdf.rect(100, 60, 80, 10);
+            pdf.text("Defect Photo", 50, 67, { align: "center" });
+            pdf.text("Remarks", 140, 67, { align: "center" });
+            
+            let yPosition = 70;
+            
+            // Due to limitations, we'll add text for photos
+            reportImages.forEach((image, index) => {
+                pdf.rect(20, yPosition, 80, 20);
+                pdf.rect(100, yPosition, 80, 20);
+                pdf.text(`[Photo ${index + 1}]`, 60, yPosition + 10, { align: "center" });
+                pdf.text(image.remarks, 105, yPosition + 10);
+                yPosition += 20;
+            });
+            
+            // Save PDF
+            pdf.save(`defect_report_${new Date().toISOString().slice(0,10)}.pdf`);
+            
+            document.getElementById('loadingMessage').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
